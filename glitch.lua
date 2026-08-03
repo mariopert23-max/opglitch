@@ -1,10 +1,6 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- =========================
--- ESTADOS
--- =========================
-
 local speedEnabled = false
 local spinEnabled = false
 local thighEnabled = false
@@ -14,24 +10,19 @@ local speedBoost = 350
 local humanoid
 local baseWalkSpeed = 16
 
--- =========================
--- SPEED
--- =========================
-
+-- SPEED / SPIN
 local function setupHumanoid(hum)
     humanoid = hum
     baseWalkSpeed = hum.WalkSpeed
 
     hum.StateChanged:Connect(function(_, state)
         if state == Enum.HumanoidStateType.Jumping then
-
             if speedEnabled then
                 hum.WalkSpeed = baseWalkSpeed + speedBoost
             end
 
             if spinEnabled then
                 local root = hum.Parent:FindFirstChild("HumanoidRootPart")
-
                 if root then
                     root.CFrame =
                         root.CFrame *
@@ -40,7 +31,6 @@ local function setupHumanoid(hum)
             end
 
         elseif state == Enum.HumanoidStateType.Landed then
-
             if speedEnabled then
                 hum.WalkSpeed = baseWalkSpeed
             end
@@ -48,14 +38,9 @@ local function setupHumanoid(hum)
     end)
 end
 
--- =========================
 -- AUTO THIGH
--- =========================
-
 local function createThigh(character)
-    if not thighEnabled then
-        return
-    end
+    if not thighEnabled then return end
 
     local root = character:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -67,9 +52,7 @@ local function createThigh(character)
     if not leg then return end
 
     local old = character:FindFirstChild("AutoThighPart")
-    if old then
-        old:Destroy()
-    end
+    if old then old:Destroy() end
 
     local part = Instance.new("Part")
     part.Name = "AutoThighPart"
@@ -86,10 +69,7 @@ local function createThigh(character)
     weld.Parent = part
 end
 
--- =========================
--- TRACKER PHYSICS
--- =========================
-
+-- TRACKER
 local originalProperties = {}
 local trackerPart
 
@@ -98,8 +78,7 @@ local function saveProperties(character)
 
     for _, obj in ipairs(character:GetDescendants()) do
         if obj:IsA("BasePart") then
-            originalProperties[obj] =
-                obj.CustomPhysicalProperties
+            originalProperties[obj] = obj.CustomPhysicalProperties
         end
     end
 end
@@ -124,18 +103,12 @@ local function removeTracker()
 end
 
 local function enableTracker(character)
-    if not trackerEnabled then
-        return
-    end
+    if not trackerEnabled then return end
 
     removeTracker()
 
-    local root =
-        character:FindFirstChild("HumanoidRootPart")
-
-    if not root then
-        return
-    end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
     saveProperties(character)
 
@@ -183,10 +156,7 @@ local function enableTracker(character)
     end
 end
 
--- =========================
--- RESPAWN
--- =========================
-
+-- CHARACTER
 local function setupCharacter(character)
     local hum = character:WaitForChild("Humanoid", 5)
 
@@ -214,133 +184,76 @@ player.CharacterAdded:Connect(function(character)
 end)
 
 -- =========================
--- BIG BUTTON: SPEED
+-- BIG BUTTONS
 -- =========================
 
-AddBigButton(
-    "GlitchesSpeed",
-    "Speed ON / OFF",
-    function()
+AddBigButton("GlitchesSpeed", "Speed ON / OFF", function()
+    speedEnabled = not speedEnabled
 
-        speedEnabled = not speedEnabled
-
-        if speedEnabled then
-            if humanoid then
-                humanoid.WalkSpeed =
-                    baseWalkSpeed + speedBoost
-            end
-
-            print("Speed: ON")
-        else
-            if humanoid then
-                humanoid.WalkSpeed =
-                    baseWalkSpeed
-            end
-
-            print("Speed: OFF")
+    if speedEnabled then
+        if humanoid then
+            humanoid.WalkSpeed = baseWalkSpeed + speedBoost
         end
-    end
-)
-
--- =========================
--- BIG BUTTON: SPEED BOOST
--- =========================
-
-AddBigButton(
-    "GlitchesSpeedBoost",
-    "Speed Boost: 350",
-    function()
-
-        speedBoost = 350
-
-        if speedEnabled and humanoid then
-            humanoid.WalkSpeed =
-                baseWalkSpeed + speedBoost
+        print("Speed ON")
+    else
+        if humanoid then
+            humanoid.WalkSpeed = baseWalkSpeed
         end
-
-        print("Speed Boost:", speedBoost)
+        print("Speed OFF")
     end
-)
+end)
 
--- =========================
--- BIG BUTTON: SPIN
--- =========================
+AddBigButton("GlitchesSpin", "Spin ON / OFF", function()
+    spinEnabled = not spinEnabled
 
-AddBigButton(
-    "GlitchesSpin",
-    "Spin ON / OFF",
-    function()
+    print(
+        "Spin " ..
+        (spinEnabled and "ON" or "OFF")
+    )
+end)
 
-        spinEnabled = not spinEnabled
+AddBigButton("GlitchesThigh", "Auto Thigh ON / OFF", function()
+    thighEnabled = not thighEnabled
 
-        print(
-            "Spin:",
-            spinEnabled and "ON" or "OFF"
-        )
-    end
-)
-
--- =========================
--- BIG BUTTON: AUTO THIGH
--- =========================
-
-AddBigButton(
-    "GlitchesThigh",
-    "Auto Thigh ON / OFF",
-    function()
-
-        thighEnabled = not thighEnabled
-
-        if thighEnabled then
-
-            if player.Character then
-                createThigh(player.Character)
-            end
-
-            print("Auto Thigh: ON")
-
-        else
-
-            if player.Character then
-                local part =
-                    player.Character:FindFirstChild(
-                        "AutoThighPart"
-                    )
-
-                if part then
-                    part:Destroy()
-                end
-            end
-
-            print("Auto Thigh: OFF")
+    if thighEnabled then
+        if player.Character then
+            createThigh(player.Character)
         end
-    end
-)
+        print("Auto Thigh ON")
+    else
+        if player.Character then
+            local part =
+                player.Character:FindFirstChild("AutoThighPart")
 
--- =========================
--- BIG BUTTON: TRACKER
--- =========================
-
-AddBigButton(
-    "GlitchesTracker",
-    "Tracker Physics ON / OFF",
-    function()
-
-        trackerEnabled = not trackerEnabled
-
-        if trackerEnabled then
-
-            if player.Character then
-                enableTracker(player.Character)
+            if part then
+                part:Destroy()
             end
-
-            print("Tracker Physics: ON")
-
-        else
-
-            removeTracker()
-
-            print("Tracker Physics: OFF")
         end
+        print("Auto Thigh OFF")
     end
-)
+end)
+
+AddBigButton("GlitchesTracker", "Tracker Physics ON / OFF", function()
+    trackerEnabled = not trackerEnabled
+
+    if trackerEnabled then
+        if player.Character then
+            enableTracker(player.Character)
+        end
+        print("Tracker Physics ON")
+    else
+        removeTracker()
+        print("Tracker Physics OFF")
+    end
+end)
+
+AddBigButton("GlitchesSpeedBoost", "Speed Boost", function()
+    speedBoost = 350
+
+    if speedEnabled and humanoid then
+        humanoid.WalkSpeed =
+            baseWalkSpeed + speedBoost
+    end
+
+    print("Speed Boost: " .. speedBoost)
+end)
