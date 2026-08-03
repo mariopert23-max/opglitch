@@ -1,20 +1,21 @@
-local shared = odh_shared_plugins
-local section = shared.AddSection("Glitches")
-
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-local humanoid
-local baseWalkSpeed = 16
-local speedBoost = 350
+-- =========================
+-- ESTADOS
+-- =========================
 
 local speedEnabled = false
 local spinEnabled = false
 local thighEnabled = false
 local trackerEnabled = false
 
+local speedBoost = 350
+local humanoid
+local baseWalkSpeed = 16
+
 -- =========================
--- SPEED + SPIN
+-- SPEED
 -- =========================
 
 local function setupHumanoid(hum)
@@ -56,35 +57,27 @@ local function createThigh(character)
         return
     end
 
-    local root = character:WaitForChild("HumanoidRootPart")
-    task.wait(0.5)
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
-    local leftLeg =
+    local leg =
         character:FindFirstChild("LeftUpperLeg")
         or character:FindFirstChild("Left Leg")
 
-    if not leftLeg then
-        return
-    end
+    if not leg then return end
 
     local old = character:FindFirstChild("AutoThighPart")
-
     if old then
         old:Destroy()
     end
 
-    local offset =
-        root.CFrame:Inverse() * leftLeg.CFrame
-
     local part = Instance.new("Part")
     part.Name = "AutoThighPart"
     part.Size = Vector3.new(0.5, 0.5, 2)
-    part.CFrame =
-        root.CFrame * CFrame.new(-0.9, offset.Y, 0)
-
+    part.Transparency = 1
     part.CanCollide = true
     part.Massless = true
-    part.Transparency = 1
+    part.CFrame = leg.CFrame
     part.Parent = character
 
     local weld = Instance.new("WeldConstraint")
@@ -99,16 +92,14 @@ end
 
 local originalProperties = {}
 local trackerPart
-local trackerConnections = {}
-local trackerCharacter
 
 local function saveProperties(character)
     originalProperties = {}
 
-    for _, object in ipairs(character:GetDescendants()) do
-        if object:IsA("BasePart") then
-            originalProperties[object] =
-                object.CustomPhysicalProperties
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            originalProperties[obj] =
+                obj.CustomPhysicalProperties
         end
     end
 end
@@ -124,12 +115,6 @@ local function restoreProperties()
 end
 
 local function removeTracker()
-    for _, connection in ipairs(trackerConnections) do
-        connection:Disconnect()
-    end
-
-    trackerConnections = {}
-
     if trackerPart then
         trackerPart:Destroy()
         trackerPart = nil
@@ -139,16 +124,14 @@ local function removeTracker()
 end
 
 local function enableTracker(character)
-    if not character or not trackerEnabled then
+    if not trackerEnabled then
         return
     end
 
     removeTracker()
 
-    trackerCharacter = character
-
     local root =
-        character:WaitForChild("HumanoidRootPart", 5)
+        character:FindFirstChild("HumanoidRootPart")
 
     if not root then
         return
@@ -170,25 +153,24 @@ local function enableTracker(character)
     weld.Part1 = root
     weld.Parent = trackerPart
 
-    for _, object in ipairs(character:GetDescendants()) do
-        if object:IsA("BasePart")
-            and object ~= trackerPart
-            and object:FindFirstAncestorOfClass("Tool") == nil then
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("BasePart")
+            and obj ~= trackerPart
+            and not obj:FindFirstAncestorOfClass("Tool") then
 
-            local oldProperties =
-                object.CustomPhysicalProperties
+            local old = obj.CustomPhysicalProperties
 
-            if oldProperties then
-                object.CustomPhysicalProperties =
+            if old then
+                obj.CustomPhysicalProperties =
                     PhysicalProperties.new(
                         0.1,
-                        oldProperties.Friction,
-                        oldProperties.Elasticity,
-                        oldProperties.FrictionWeight,
-                        oldProperties.ElasticityWeight
+                        old.Friction,
+                        old.Elasticity,
+                        old.FrictionWeight,
+                        old.ElasticityWeight
                     )
             else
-                object.CustomPhysicalProperties =
+                obj.CustomPhysicalProperties =
                     PhysicalProperties.new(
                         0.1,
                         0.7,
@@ -202,188 +184,163 @@ local function enableTracker(character)
 end
 
 -- =========================
--- CHARACTER SETUP
+-- RESPAWN
 -- =========================
 
 local function setupCharacter(character)
+    local hum = character:WaitForChild("Humanoid", 5)
 
-    setupHumanoid(
-        character:WaitForChild("Humanoid")
-    )
+    if hum then
+        setupHumanoid(hum)
+    end
+
+    task.wait(0.5)
 
     if thighEnabled then
-        task.spawn(createThigh, character)
+        createThigh(character)
     end
 
     if trackerEnabled then
-        task.spawn(enableTracker, character)
+        enableTracker(character)
     end
 end
 
 if player.Character then
-    setupCharacter(player.Character)
+    task.spawn(setupCharacter, player.Character)
 end
 
 player.CharacterAdded:Connect(function(character)
-
-    task.wait(1)
-
-    setupCharacter(character)
-
+    task.spawn(setupCharacter, character)
 end)
 
 -- =========================
--- BUTTON: SPEED
+-- BIG BUTTON: SPEED
 -- =========================
 
-BindableButtons.AddBButton(
-    "Speed",
-    "Speed",
+AddBigButton(
+    "GlitchesSpeed",
+    "Speed ON / OFF",
     function()
 
-        speedEnabled = true
+        speedEnabled = not speedEnabled
 
-        if humanoid then
-            humanoid.WalkSpeed =
-                baseWalkSpeed + speedBoost
+        if speedEnabled then
+            if humanoid then
+                humanoid.WalkSpeed =
+                    baseWalkSpeed + speedBoost
+            end
+
+            print("Speed: ON")
+        else
+            if humanoid then
+                humanoid.WalkSpeed =
+                    baseWalkSpeed
+            end
+
+            print("Speed: OFF")
         end
-
-        shared.Notify("Speed ON", 2)
-
-    end,
-
-    function()
-
-        speedEnabled = false
-
-        if humanoid then
-            humanoid.WalkSpeed =
-                baseWalkSpeed
-        end
-
-        shared.Notify("Speed OFF", 2)
-
     end
 )
 
 -- =========================
--- SPEED BOOST SLIDER
+-- BIG BUTTON: SPEED BOOST
 -- =========================
 
-section:AddSlider(
-    "Speed Boost",
-    0,
-    99999,
-    350,
-    function(value)
+AddBigButton(
+    "GlitchesSpeedBoost",
+    "Speed Boost: 350",
+    function()
 
-        speedBoost = value
+        speedBoost = 350
 
         if speedEnabled and humanoid then
             humanoid.WalkSpeed =
                 baseWalkSpeed + speedBoost
         end
 
+        print("Speed Boost:", speedBoost)
     end
 )
 
 -- =========================
--- BUTTON: SPIN
+-- BIG BUTTON: SPIN
 -- =========================
 
-BindableButtons.AddBButton(
-    "Spin",
-    "Spin on Jump",
+AddBigButton(
+    "GlitchesSpin",
+    "Spin ON / OFF",
     function()
 
-        spinEnabled = true
-        shared.Notify("Spin ON", 2)
+        spinEnabled = not spinEnabled
 
-    end,
-
-    function()
-
-        spinEnabled = false
-        shared.Notify("Spin OFF", 2)
-
-    end
-)
-
--- =========================
--- BUTTON: AUTO THIGH
--- =========================
-
-BindableButtons.AddBButton(
-    "AutoThigh",
-    "Auto Thigh",
-    function()
-
-        thighEnabled = true
-
-        if player.Character then
-            task.spawn(
-                createThigh,
-                player.Character
-            )
-        end
-
-        shared.Notify("Auto Thigh ON", 2)
-
-    end,
-
-    function()
-
-        thighEnabled = false
-
-        if player.Character then
-
-            local part =
-                player.Character:FindFirstChild(
-                    "AutoThighPart"
-                )
-
-            if part then
-                part:Destroy()
-            end
-        end
-
-        shared.Notify("Auto Thigh OFF", 2)
-
-    end
-)
-
--- =========================
--- BUTTON: TRACKER PHYSICS
--- =========================
-
-BindableButtons.AddBButton(
-    "TrackerPhysics",
-    "Tracker Physics",
-    function()
-
-        trackerEnabled = true
-
-        if player.Character then
-            task.spawn(
-                enableTracker,
-                player.Character
-            )
-        end
-
-        shared.Notify("Tracker Physics ON", 2)
-
-    end,
-
-    function()
-
-        trackerEnabled = false
-
-        removeTracker()
-
-        shared.Notify(
-            "Tracker Physics OFF",
-            2
+        print(
+            "Spin:",
+            spinEnabled and "ON" or "OFF"
         )
+    end
+)
 
+-- =========================
+-- BIG BUTTON: AUTO THIGH
+-- =========================
+
+AddBigButton(
+    "GlitchesThigh",
+    "Auto Thigh ON / OFF",
+    function()
+
+        thighEnabled = not thighEnabled
+
+        if thighEnabled then
+
+            if player.Character then
+                createThigh(player.Character)
+            end
+
+            print("Auto Thigh: ON")
+
+        else
+
+            if player.Character then
+                local part =
+                    player.Character:FindFirstChild(
+                        "AutoThighPart"
+                    )
+
+                if part then
+                    part:Destroy()
+                end
+            end
+
+            print("Auto Thigh: OFF")
+        end
+    end
+)
+
+-- =========================
+-- BIG BUTTON: TRACKER
+-- =========================
+
+AddBigButton(
+    "GlitchesTracker",
+    "Tracker Physics ON / OFF",
+    function()
+
+        trackerEnabled = not trackerEnabled
+
+        if trackerEnabled then
+
+            if player.Character then
+                enableTracker(player.Character)
+            end
+
+            print("Tracker Physics: ON")
+
+        else
+
+            removeTracker()
+
+            print("Tracker Physics: OFF")
+        end
     end
 )
